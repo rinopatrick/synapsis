@@ -2,9 +2,11 @@
 
 import { useChat } from "ai/react";
 import { useAppStore } from "./use-app-store";
+import { useCodebaseContext } from "./use-codebase-context";
 
 export function useAIChat() {
   const { aiConfig } = useAppStore();
+  const { getContextSummary } = useCodebaseContext();
 
   const {
     messages,
@@ -19,6 +21,7 @@ export function useAIChat() {
     api: "/api/chat",
     body: {
       config: aiConfig,
+      codebaseContext: getContextSummary(),
     },
     onError: (error) => {
       console.error("Chat error:", error);

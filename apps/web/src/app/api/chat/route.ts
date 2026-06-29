@@ -92,15 +92,18 @@ function sanitizeMessages(messages: any[]): any[] {
   });
 }
 
-async function streamOpenAI(config: any, messages: any[]) {
+async function streamOpenAI(config: any, messages: any[], codebaseContext?: string) {
   const sanitizedMessages = sanitizeMessages(messages);
-  
+  const systemContent = codebaseContext
+    ? `${SYSTEM_PROMPT}\n\n${codebaseContext}`
+    : SYSTEM_PROMPT;
+
   const response = await fetch(config.url, {
     method: "POST",
     headers: config.headers,
     body: JSON.stringify({
       model: config.model,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...sanitizedMessages],
+      messages: [{ role: "system", content: systemContent }, ...sanitizedMessages],
       stream: true,
       max_tokens: 2000,
       temperature: 0.7,
@@ -110,15 +113,18 @@ async function streamOpenAI(config: any, messages: any[]) {
   return response;
 }
 
-async function streamAnthropic(config: any, messages: any[]) {
+async function streamAnthropic(config: any, messages: any[], codebaseContext?: string) {
   const sanitizedMessages = sanitizeMessages(messages);
-  
+  const systemContent = codebaseContext
+    ? `${SYSTEM_PROMPT}\n\n${codebaseContext}`
+    : SYSTEM_PROMPT;
+
   const response = await fetch(config.url, {
     method: "POST",
     headers: config.headers,
     body: JSON.stringify({
       model: config.model,
-      system: SYSTEM_PROMPT,
+      system: systemContent,
       messages: sanitizedMessages.map((m: any) => ({
         role: m.role,
         content: m.content,
@@ -131,15 +137,18 @@ async function streamAnthropic(config: any, messages: any[]) {
   return response;
 }
 
-async function streamOllama(config: any, messages: any[]) {
+async function streamOllama(config: any, messages: any[], codebaseContext?: string) {
   const sanitizedMessages = sanitizeMessages(messages);
-  
+  const systemContent = codebaseContext
+    ? `${SYSTEM_PROMPT}\n\n${codebaseContext}`
+    : SYSTEM_PROMPT;
+
   const response = await fetch(config.url, {
     method: "POST",
     headers: config.headers,
     body: JSON.stringify({
       model: config.model,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...sanitizedMessages],
+      messages: [{ role: "system", content: systemContent }, ...sanitizedMessages],
       stream: true,
     }),
   });
@@ -150,7 +159,7 @@ async function streamOllama(config: any, messages: any[]) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { messages, provider = "ollama", apiKey, model } = body;
+    const { messages, provider = "ollama", apiKey, model, codebaseContext } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -175,13 +184,13 @@ export async function POST(request: Request) {
 
     switch (provider) {
       case "openai":
-        response = await streamOpenAI(config, messages);
+        response = await streamOpenAI(config, messages, codebaseContext);
         break;
       case "anthropic":
-        response = await streamAnthropic(config, messages);
+        response = await streamAnthropic(config, messages, codebaseContext);
         break;
       case "ollama":
-        response = await streamOllama(config, messages);
+        response = await streamOllama(config, messages, codebaseContext);
         break;
       default:
         return NextResponse.json(
