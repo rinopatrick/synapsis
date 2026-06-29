@@ -1,75 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 import { cn } from "@/lib/utils";
-import { useIDEStore } from "@/hooks/use-ide-store";
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
-  disabled?: boolean;
+  className?: string;
 }
 
-export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [isSupported, setIsSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const { addNotification } = useIDEStore();
-
-  useEffect(() => {
-    // Check if Speech Recognition is supported
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      setIsSupported(true);
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-
-      recognition.onresult = (event: any) => {
-        const current = event.resultIndex;
-        const result = event.results[current];
-        const text = result[0].transcript;
-
-        setTranscript(text);
-
-        if (result.isFinal) {
-          onTranscript(text);
-          setTranscript("");
-          setIsListening(false);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-        addNotification("Voice recognition error: " + event.error, "error");
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-  }, [onTranscript, addNotification]);
-
-  const toggleListening = useCallback(() => {
-    if (!recognitionRef.current) return;
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      setTranscript("");
-      recognitionRef.current.start();
-      setIsListening(true);
-      addNotification("Listening...", "info");
-    }
-  }, [isListening, addNotification]);
+export function VoiceInput({ onTranscript, className }: VoiceInputProps) {
+  const { isListening, isSupported, toggleListening } = useVoiceInput({
+    onResult: onTranscript,
+  });
 
   if (!isSupported) {
     return null;
@@ -78,12 +20,12 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   return (
     <button
       onClick={toggleListening}
-      disabled={disabled}
       className={cn(
-        "p-2 rounded-lg transition-all",
+        "p-2 rounded-lg transition-all duration-200",
         isListening
           ? "bg-red-500 text-white animate-pulse"
-          : "bg-[#3c3c3c] text-gray-400 hover:text-white hover:bg-[#4c4c4c]"
+          : "bg-[#3c3c3c] text-gray-400 hover:text-white hover:bg-[#4c4c4c]",
+        className
       )}
       title={isListening ? "Stop listening" : "Start voice input"}
     >
@@ -97,12 +39,6 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
         </svg>
-      )}
-
-      {isListening && transcript && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 p-2 bg-[#252526] border border-[#3c3c3c] rounded text-xs text-gray-300">
-          {transcript}
-        </div>
       )}
     </button>
   );

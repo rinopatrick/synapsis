@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
 import { useCodeContext } from "@/hooks/use-code-context";
+import { VoiceInput } from "./voice-input";
 
 interface ChatMessage {
   id: string;
@@ -345,6 +346,7 @@ export function AIChatPanel() {
               </div>
             )}
           </div>
+          <VoiceInput onTranscript={(text) => setInput(prev => prev ? prev + " " + text : text)} />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isStreaming}
