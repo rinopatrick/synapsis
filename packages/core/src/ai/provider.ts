@@ -147,22 +147,57 @@ Focus on:
   }
 
   /**
-   * Chat with API provider (OpenAI/Anthropic/Google)
+   * Chat with API provider (OpenAI/Anthropic)
    */
   private async chatWithAPI(messages: AIMessage[]): Promise<string> {
-    // This would use the actual API SDK
-    // For now, return a placeholder
     const provider = this.config.provider || "openai";
-    
-    // In production, this would make actual API calls
-    // Example with OpenAI:
-    // const response = await openai.chat.completions.create({
-    //   model: this.config.model || "gpt-4",
-    //   messages: messages.map(m => ({ role: m.role, content: m.content })),
-    // });
-    // return response.choices[0].message.content;
 
-    return `[${provider} API Response] This is a placeholder. In production, this would call the ${provider} API.`;
+    if (provider === "openai") {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model || "gpt-4",
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
+
+    if (provider === "anthropic") {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.config.apiKey!,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: this.config.model || "claude-3-sonnet-20240229",
+          max_tokens: 1024,
+          messages: messages.filter(m => m.role !== "system").map(m => ({ role: m.role, content: m.content })),
+          system: messages.find(m => m.role === "system")?.content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.content[0].text;
+    }
+
+    throw new Error(`Unknown API provider: ${provider}`);
   }
 
   /**
@@ -201,18 +236,30 @@ Focus on:
    * Chat with OAuth provider
    */
   private async chatWithOAuth(messages: AIMessage[]): Promise<string> {
-    // OAuth would use the user's account (e.g., ChatGPT)
-    // This requires OAuth flow implementation
     const provider = this.config.oauthProvider || "openai";
-    
-    // In production, this would use the OAuth token
-    // Example:
-    // const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    //   headers: { Authorization: `Bearer ${this.config.oauthToken}` },
-    //   ...
-    // });
 
-    return `[${provider} OAuth Response] This is a placeholder. In production, this would use OAuth authentication.`;
+    if (provider === "openai") {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.oauthToken}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model || "gpt-4",
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI OAuth error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
+
+    throw new Error(`OAuth provider ${provider} not implemented`);
   }
 
   /**
