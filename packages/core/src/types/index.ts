@@ -188,3 +188,22 @@ export interface Challenge {
   solution: string;
   xp: number;
 }
+
+// Extension Types
+export interface Extension {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  enabled: boolean;
+  activate: (context: ExtensionContext) => void;
+  deactivate: () => void;
+}
+
+export interface ExtensionContext {
+  registerCommand: (id: string, handler: (...args: any[]) => any) => void;
+  registerProvider: (type: string, provider: any) => void;
+  getConfiguration: (key: string) => any;
+  updateConfiguration: (key: string, value: any) => void;
+}

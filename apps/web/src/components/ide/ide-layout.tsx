@@ -15,6 +15,7 @@ import { SnippetsPanel } from "./snippets-panel";
 import { SettingsPanel } from "./settings-panel";
 import { OAuthPanel } from "./oauth-panel";
 import { CollaborativePanel } from "./collaborative-panel";
+import { ExtensionsPanel } from "./extensions-panel";
 import { SearchPanel } from "./search-panel";
 import { GitPanel } from "./git-panel";
 import { NotificationToast } from "./notification-toast";
@@ -304,7 +305,7 @@ export function IDELayout() {
               {store.activeSidebar === "collab" && <CollaborativePanel />}
               {store.activeSidebar === "dashboard" && <LearningDashboard />}
               {store.activeSidebar === "debug" && <ComingSoonPanel icon="🐛" title="Debug" />}
-              {store.activeSidebar === "extensions" && <ComingSoonPanel icon="🧩" title="Extensions" />}
+              {store.activeSidebar === "extensions" && <ExtensionsPanel />}
             </div>
             <ResizeHandle
               direction="horizontal"
