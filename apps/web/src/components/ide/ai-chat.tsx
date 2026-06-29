@@ -4,7 +4,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
 import { useCodeContext } from "@/hooks/use-code-context";
+import { useCodebaseContext } from "@/hooks/use-codebase-context";
+import { useMultiFileEdit } from "@/hooks/use-multi-file-edit";
 import { VoiceInput } from "./voice-input";
+import { DiffPreview } from "./diff-preview";
 
 interface ChatMessage {
   id: string;
@@ -85,7 +88,10 @@ export function AIChatPanel() {
   const [apiKey, setApiKey] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [includeContext, setIncludeContext] = useState(true);
+  const [showDiffPreview, setShowDiffPreview] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { files: codebaseFiles } = useCodebaseContext();
+  const { changes, isGenerating, isApplying, error: multiEditError, generateChanges, applyChanges, clearChanges } = useMultiFileEdit();
   const abortControllerRef = useRef<AbortController | null>(null);
   const { learningMode, addNotification } = useIDEStore();
   const { buildContextPrompt, getCurrentFileName } = useCodeContext();
@@ -202,6 +208,47 @@ export function AIChatPanel() {
     setMessages([{ id: "1", role: "system", content: "Chat cleared. How can I help?", timestamp: new Date() }]);
     addNotification("Chat cleared", "info");
   };
+
+  const handleMultiEdit = useCallback(async () => {
+    if (!input.trim() || isGenerating) return;
+
+    const filePaths = codebaseFiles.map((f) => f.path);
+    if (filePaths.length === 0) {
+      addNotification("No files indexed. Please index the codebase first.", "warning");
+      return;
+    }
+
+    await generateChanges(input, filePaths, {
+      context: includeContext ? buildContextPrompt(input) : undefined,
+      provider: selectedProvider,
+      apiKey: apiKey || undefined,
+      model: selectedModel || undefined,
+    });
+
+    setShowDiffPreview(true);
+  }, [input, isGenerating, codebaseFiles, includeContext, selectedProvider, apiKey, selectedModel, generateChanges, addNotification, buildContextPrompt]);
+
+  const handleApplyChanges = useCallback(async () => {
+    const applied = await applyChanges();
+    if (applied > 0) {
+      addNotification(`Applied ${applied} file change(s)`, "success");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Applied ${applied} file change(s) successfully.`,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+    setShowDiffPreview(false);
+  }, [applyChanges, addNotification]);
+
+  const handleDiscardChanges = useCallback(() => {
+    clearChanges();
+    setShowDiffPreview(false);
+  }, [clearChanges]);
 
   const currentProvider = providers.find(p => p.id === selectedProvider);
 
@@ -348,6 +395,23 @@ export function AIChatPanel() {
           </div>
           <VoiceInput onTranscript={(text) => setInput(prev => prev ? prev + " " + text : text)} />
           <button
+            onClick={handleMultiEdit}
+            disabled={!input.trim() || isGenerating}
+            className="px-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:hover:bg-purple-600 transition-colors flex items-center gap-1.5"
+            title="Multi-file edit: AI edits multiple files based on your instruction"
+          >
+            {isGenerating ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M12 18v-6" />
+                <path d="M9 15h6" />
+              </svg>
+            )}
+          </button>
+          <button
             onClick={handleSend}
             disabled={!input.trim() || isStreaming}
             className="px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors flex items-center gap-1.5"
@@ -365,9 +429,26 @@ export function AIChatPanel() {
           <span className="text-[10px] text-gray-500">
             {selectedProvider === "ollama" ? "Using Ollama (local)" : `Using ${currentProvider?.name || selectedProvider}`}
           </span>
-          <span className="text-[10px] text-gray-500">Enter to send</span>
+          <span className="text-[10px] text-gray-500">Enter to send | Purple button for multi-file edit</span>
         </div>
       </div>
+
+      {/* Diff Preview Modal */}
+      {showDiffPreview && (
+        <DiffPreview
+          changes={changes}
+          onApply={handleApplyChanges}
+          onDiscard={handleDiscardChanges}
+          isApplying={isApplying}
+        />
+      )}
+
+      {/* Multi-edit error */}
+      {multiEditError && (
+        <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20 text-xs text-red-400">
+          Multi-edit error: {multiEditError}
+        </div>
+      )}
     </div>
   );
 }
