@@ -1,0 +1,12 @@
+{
+  "name": "synapsis",
+  "version": "1.0.0",
+  "description": "AI Learning IDE - Form the connection. Learn the code.",
+  "private": true,
+  "scripts": {
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm run build",
+    "lint": "cd apps/web && npm run lint",
+    "test": "cd packages/core && npm run test"
+  }
+}

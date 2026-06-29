@@ -1,0 +1,29 @@
+{
+  "name": "@synapsis/core",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./learning": "./src/learning/index.ts",
+    "./decision": "./src/decision/index.ts",
+    "./ai": "./src/ai/index.ts",
+    "./skill": "./src/skill/index.ts",
+    "./session": "./src/session/index.ts",
+    "./types": "./src/types/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
