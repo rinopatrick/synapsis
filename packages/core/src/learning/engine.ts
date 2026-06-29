@@ -8,13 +8,16 @@ import type {
   ProjectContext,
   Decision,
 } from "../types";
+import { AIProvider } from "../ai/provider";
 
 export class LearningEngine {
   private config: LearningConfig;
   private revealLevel: Map<string, RevealLevel> = new Map();
+  private aiProvider: AIProvider | null;
 
-  constructor(config: LearningConfig) {
+  constructor(config: LearningConfig, aiProvider?: AIProvider) {
     this.config = config;
+    this.aiProvider = aiProvider || null;
   }
 
   /**
@@ -44,16 +47,12 @@ export class LearningEngine {
   /**
    * Generate a question based on context and user level
    */
-  generateQuestion(context: ProjectContext): QuestionDecision | null {
-    // If in builder mode, don't generate learning questions
+  async generateQuestion(context: ProjectContext): Promise<QuestionDecision | null> {
     if (this.config.mode === "builder") {
       return null;
     }
 
-    // Determine question difficulty based on user level
     const difficulty = this.getDifficultyForLevel();
-
-    // Generate question based on context
     return this.createQuestionFromContext(context, difficulty);
   }
 
@@ -134,14 +133,43 @@ export class LearningEngine {
   }
 
   /**
-   * Create a question from project context
+   * Create a question from project context, using AI if available
    */
-  private createQuestionFromContext(
+  private async createQuestionFromContext(
+    context: ProjectContext,
+    difficulty: "easy" | "medium" | "hard"
+  ): Promise<QuestionDecision> {
+    if (this.aiProvider && this.aiProvider.isConfigured()) {
+      try {
+        const aiDecision = await this.aiProvider.generateDecision(
+          `Project: ${context.description}. Tech stack: ${context.techStack.join(", ")}. Generate a ${difficulty} level question.`
+        );
+        return {
+          id: aiDecision.id,
+          topic: aiDecision.topic,
+          category: aiDecision.category,
+          question: aiDecision.question,
+          hint: aiDecision.hint,
+          options: aiDecision.options,
+          explanation: aiDecision.explanation,
+          correctAnswer: aiDecision.correctAnswer,
+          difficulty: aiDecision.difficulty,
+        };
+      } catch (error) {
+        console.warn("AI question generation failed, using fallback:", error);
+      }
+    }
+
+    return this.createFallbackQuestion(context, difficulty);
+  }
+
+  /**
+   * Fallback: create a question from hardcoded templates
+   */
+  private createFallbackQuestion(
     context: ProjectContext,
     difficulty: "easy" | "medium" | "hard"
   ): QuestionDecision {
-    // This is a placeholder implementation
-    // In production, this would use AI to generate contextual questions
     const topic = this.detectTopic(context);
 
     return {
