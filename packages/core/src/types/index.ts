@@ -140,6 +140,17 @@ export interface AIResponse {
   explanation?: string;
 }
 
+// Collaborative Types
+export interface CollaborativeSession {
+  id: string;
+  hostId: string;
+  topic: string;
+  participants: string[];
+  maxParticipants: number;
+  status: "waiting" | "active" | "completed";
+  createdAt: Date;
+}
+
 // Project Types
 export interface ProjectContext {
   description: string;
