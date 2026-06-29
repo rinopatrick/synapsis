@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { ActivityBar } from "./activity-bar";
 import { FileExplorer } from "./file-explorer";
-import { CodeEditor } from "./code-editor";
-import { Terminal } from "./terminal";
 import { ProblemsPanel } from "./problems-panel";
 import { OutputPanel } from "./output-panel";
-import { AIChatPanel } from "./ai-chat";
 import { CommandPalette } from "./command-palette";
 import { WelcomePage } from "./welcome-page";
-import { LearningDashboard } from "./learning-dashboard";
-import { SnippetsPanel } from "./snippets-panel";
 import { SettingsPanel } from "./settings-panel";
 import { OAuthPanel } from "./oauth-panel";
 import { CollaborativePanel } from "./collaborative-panel";
@@ -26,6 +21,19 @@ import { NewWorkspaceDialog, OpenWorkspaceDialog, NewFileDialog } from "./worksp
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
 import { useWorkspace } from "@/hooks/use-workspace";
+
+const CodeEditor = lazy(() => import("./code-editor").then(m => ({ default: m.CodeEditor })));
+const Terminal = lazy(() => import("./terminal").then(m => ({ default: m.Terminal })));
+const LearningDashboard = lazy(() => import("./learning-dashboard").then(m => ({ default: m.LearningDashboard })));
+const AIChatPanel = lazy(() => import("./ai-chat").then(m => ({ default: m.AIChatPanel })));
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+    </div>
+  );
+}
 
 export function IDELayout() {
   const store = useIDEStore();
@@ -299,11 +307,11 @@ export function IDELayout() {
               {store.activeSidebar === "explorer" && <FileExplorer />}
               {store.activeSidebar === "search" && <SearchPanel />}
               {store.activeSidebar === "git" && <GitPanel />}
-              {store.activeSidebar === "chat" && <AIChatPanel />}
+              {store.activeSidebar === "chat" && <Suspense fallback={<LoadingFallback />}><AIChatPanel /></Suspense>}
               {store.activeSidebar === "settings" && <SettingsPanel />}
               {store.activeSidebar === "oauth" && <OAuthPanel />}
               {store.activeSidebar === "collab" && <CollaborativePanel />}
-              {store.activeSidebar === "dashboard" && <LearningDashboard />}
+              {store.activeSidebar === "dashboard" && <Suspense fallback={<LoadingFallback />}><LearningDashboard /></Suspense>}
               {store.activeSidebar === "debug" && <ComingSoonPanel icon="🐛" title="Debug" />}
               {store.activeSidebar === "extensions" && <ExtensionsPanel />}
             </div>
@@ -321,11 +329,11 @@ export function IDELayout() {
         >
           <div className="flex-1 overflow-hidden">
             {showDashboard ? (
-              <LearningDashboard />
+              <Suspense fallback={<LoadingFallback />}><LearningDashboard /></Suspense>
             ) : store.showWelcome ? (
               <WelcomePage onStartLearning={() => { store.setShowWelcome(false); store.setActiveSidebar("chat"); }} />
             ) : (
-              <CodeEditor />
+              <Suspense fallback={<LoadingFallback />}><CodeEditor /></Suspense>
             )}
           </div>
 
@@ -354,7 +362,7 @@ export function IDELayout() {
                   <button className="text-gray-400 hover:text-white text-xs px-2" onClick={store.toggleBottomPanel}>✕</button>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  {store.activeBottomPanel === "terminal" && <Terminal />}
+                  {store.activeBottomPanel === "terminal" && <Suspense fallback={<LoadingFallback />}><Terminal /></Suspense>}
                   {store.activeBottomPanel === "problems" && <ProblemsPanel />}
                   {store.activeBottomPanel === "output" && <OutputPanel />}
                 </div>
@@ -381,7 +389,7 @@ export function IDELayout() {
               >
                 ✕
               </button>
-              <AIChatPanel />
+              <Suspense fallback={<LoadingFallback />}><AIChatPanel /></Suspense>
             </div>
           </>
         )}
