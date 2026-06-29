@@ -6,6 +6,7 @@ import type * as monaco from "monaco-editor";
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
 import { useMultiEditor } from "@/hooks/use-multi-editor";
+import { useDebug } from "@/hooks/use-debug";
 
 const fileIcons: Record<string, string> = {
   tsx: "⚛️",
@@ -113,7 +114,9 @@ function CodeEditorPane({
 }: CodeEditorPaneProps) {
   const { openFiles, updateFileContent, setActiveFile } = useIDEStore();
   const { setPaneFile } = useMultiEditor();
+  const { toggleBreakpoint, hasBreakpoint, currentLine: debugLine, currentFile: debugFile } = useDebug();
   const providerRef = useRef<monaco.IDisposable | null>(null);
+  const editorRef = useRef<monaco.IStandaloneCodeEditor | null>(null);
 
   useEffect(() => {
     return () => {
@@ -122,18 +125,50 @@ function CodeEditorPane({
   }, []);
 
   const currentFile = openFiles.find((f) => f.id === fileId);
+  const breakpoints = useDebug((state) => state.breakpoints);
 
-  const handleEditorChange: OnChange = useCallback(
-    (value) => {
-      if (value !== undefined && fileId) {
-        updateFileContent(fileId, value);
-      }
+  useEffect(() => {
+    if (!editorRef.current || !currentFile) return;
+
+    const editor = editorRef.current;
+    const fileBreakpoints = breakpoints.get(currentFile.path) || new Set();
+    const decorations: monaco.editor.IModelDeltaDecoration[] = [];
+
+    fileBreakpoints.forEach((line) => {
+      decorations.push({
+        range: {
+          startLineNumber: line,
+          startColumn: 1,
+          endLineNumber: line,
+          endColumn: 1,
+        },
+        options: {
+          isWholeLine: true,
+          className: "breakpoint-line",
+          glyphMarginClassName: "breakpoint-glyph",
+          overviewRuler: {
+            color: "#ff0000",
+            position: monaco.editor.OverviewRulerLane.Left,
+          },
+        },
+      });
+    });
+
+    editor.deltaDecorations([], decorations);
+  }, [breakpoints, currentFile]);
+
+  const handleGutterClick = useCallback(
+    (lineNumber: number) => {
+      if (!currentFile) return;
+      toggleBreakpoint(currentFile.path, lineNumber);
     },
-    [fileId, updateFileContent]
+    [currentFile, toggleBreakpoint]
   );
 
   const handleEditorMount: OnMount = useCallback(
     (editor, monaco) => {
+      editorRef.current = editor;
+
       monaco.editor.defineTheme("synapsis-dark", {
         base: "vs-dark",
         inherit: true,
@@ -160,6 +195,16 @@ function CodeEditorPane({
         },
       });
       monaco.editor.setTheme("synapsis-dark");
+
+      // Handle gutter clicks for breakpoints
+      editor.onMouseDown((e) => {
+        if (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+          const lineNumber = e.target.position?.lineNumber;
+          if (lineNumber) {
+            handleGutterClick(lineNumber);
+          }
+        }
+      });
 
       // Register inline completions provider (Copilot-style autocomplete)
       if (providerRef.current) {
@@ -223,7 +268,16 @@ function CodeEditorPane({
         }
       );
     },
-    []
+    [handleGutterClick]
+  );
+
+  const handleEditorChange: OnChange = useCallback(
+    (value) => {
+      if (value !== undefined && fileId) {
+        updateFileContent(fileId, value);
+      }
+    },
+    [fileId, updateFileContent]
   );
 
   const pathParts = currentFile?.path.split("/") || [];
@@ -341,17 +395,42 @@ function CodeEditorPane({
       )}
 
       {/* Monaco Editor */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {currentFile ? (
-          <Editor
-            height="100%"
-            language={getLanguage(currentFile.name)}
-            value={currentFile.content}
-            onChange={handleEditorChange}
-            onMount={handleEditorMount}
-            theme="synapsis-dark"
-            options={editorOptions}
-          />
+          <>
+            <Editor
+              height="100%"
+              language={getLanguage(currentFile.name)}
+              value={currentFile.content}
+              onChange={handleEditorChange}
+              onMount={handleEditorMount}
+              theme="synapsis-dark"
+              options={{
+                ...editorOptions,
+                glyphMargin: true,
+              }}
+            />
+            {/* Breakpoint indicators */}
+            {currentFile && hasBreakpoint(currentFile.path, 0) && (
+              <div className="absolute left-0 top-0 bottom-0 w-6 pointer-events-none">
+                {Array.from({ length: 50 }, (_, i) => i + 1).map((line) => {
+                  const hasBp = hasBreakpoint(currentFile.path, line);
+                  const isDebugLine = debugLine === line && debugFile === currentFile.path;
+                  return (hasBp || isDebugLine) ? (
+                    <div
+                      key={line}
+                      className={cn(
+                        "absolute w-3 h-3 rounded-full left-1.5",
+                        hasBp && "bg-red-500",
+                        isDebugLine && "bg-yellow-400"
+                      )}
+                      style={{ top: `${(line - 1) * 20 + 2}px` }}
+                    />
+                  ) : null;
+                })}
+              </div>
+            )}
+          </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
             <div className="text-center">

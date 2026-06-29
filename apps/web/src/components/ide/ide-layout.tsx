@@ -13,6 +13,7 @@ import { CollaborativePanel } from "./collaborative-panel";
 import { ExtensionsPanel } from "./extensions-panel";
 import { SearchPanel } from "./search-panel";
 import { GitPanel } from "./git-panel";
+import { DebugPanel } from "./debug-panel";
 import { NotificationToast } from "./notification-toast";
 import { SplashScreen } from "./splash-screen";
 import { ResizeHandle } from "./resize-handle";
@@ -312,7 +313,7 @@ export function IDELayout() {
               {store.activeSidebar === "oauth" && <OAuthPanel />}
               {store.activeSidebar === "collab" && <CollaborativePanel />}
               {store.activeSidebar === "dashboard" && <Suspense fallback={<LoadingFallback />}><LearningDashboard /></Suspense>}
-              {store.activeSidebar === "debug" && <ComingSoonPanel icon="🐛" title="Debug" />}
+              {store.activeSidebar === "debug" && <DebugPanel />}
               {store.activeSidebar === "extensions" && <ExtensionsPanel />}
             </div>
             <ResizeHandle
