@@ -388,24 +388,34 @@ export function IDELayout() {
 
       {/* Status Bar */}
       <div className="h-6 bg-[#007acc] flex items-center px-4 text-xs text-white justify-between select-none">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1 cursor-pointer hover:bg-[#0060a4] px-1 rounded">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1 cursor-pointer hover:bg-[#0060a4] px-1.5 rounded">
             <span>🔀</span> main
           </span>
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded">✓ 0</span>
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded">⚠ 0</span>
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded">✓ 0</span>
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded">⚠ 0</span>
+          <span className="flex items-center gap-1 px-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-green-100">AI Connected</span>
+          </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded" onClick={() => setShowDashboard(!showDashboard)}>
+        <div className="flex items-center gap-3">
+          <span className={cn("px-1.5 rounded flex items-center gap-1", store.learningMode === "learning" ? "bg-green-600/40" : "bg-purple-600/40")}>
+            {store.learningMode === "learning" ? "🎓 Learning" : "🔨 Builder"}
+          </span>
+          <span className="flex items-center gap-1 px-1.5 text-yellow-200">
+            ⚡ Lv.{Math.floor(1290 / 500) + 1} · 1290 XP
+          </span>
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded" onClick={() => setShowDashboard(!showDashboard)}>
             📊 Dashboard
           </span>
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded" onClick={() => store.toggleChat()}>
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded" onClick={() => store.toggleChat()}>
             🧠 AI: {store.showChat ? "ON" : "OFF"}
           </span>
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded">
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded">
             {store.openFiles.find((f) => f.id === store.activeFile)?.modified ? "● Modified" : "✓ Saved"}
           </span>
-          <span className="cursor-pointer hover:bg-[#0060a4] px-1 rounded">
+          <span className="cursor-pointer hover:bg-[#0060a4] px-1.5 rounded">
             {store.openFiles.find((f) => f.id === store.activeFile)?.language || ""}
           </span>
         </div>

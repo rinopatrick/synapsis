@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useIDEStore } from "@/hooks/use-ide-store";
+import { useThemeStore, type Theme } from "@/hooks/use-theme";
 
 interface Provider {
   id: string;
@@ -19,12 +20,14 @@ export function SettingsPanel() {
     addNotification,
   } = useIDEStore();
 
+  const { currentTheme, setTheme: setGlobalTheme } = useThemeStore();
+
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("ollama");
   const [selectedModel, setSelectedModel] = useState("");
   const [apiKey, setInputApiKey] = useState("");
   const [fontSize, setFontSize] = useState(14);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState(currentTheme);
   const [autoSave, setAutoSave] = useState("afterDelay");
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export function SettingsPanel() {
       userLevel,
     };
     localStorage.setItem("synapsis-settings", JSON.stringify(settings));
+    setGlobalTheme(theme as Theme);
     addNotification("Settings saved", "success");
   };
 
@@ -225,7 +229,10 @@ export function SettingsPanel() {
               </label>
               <select
                 value={theme}
-                onChange={(e) => setTheme(e.target.value)}
+                onChange={(e) => {
+                  setTheme(e.target.value);
+                  setGlobalTheme(e.target.value as Theme);
+                }}
                 className="w-full bg-[#3c3c3c] text-white rounded px-3 py-2 text-sm outline-none"
               >
                 <option value="dark">Dark+ (default)</option>

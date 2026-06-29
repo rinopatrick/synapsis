@@ -62,6 +62,13 @@ const themes: Record<Theme, ThemeColors> = {
   },
 };
 
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const saved = localStorage.getItem("synapsis-theme");
+  if (saved && saved in themes) return saved as Theme;
+  return "dark";
+}
+
 interface ThemeState {
   currentTheme: Theme;
   setTheme: (theme: Theme) => void;
@@ -69,8 +76,11 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  currentTheme: "dark",
-  setTheme: (theme) => set({ currentTheme: theme }),
+  currentTheme: getInitialTheme(),
+  setTheme: (theme) => {
+    localStorage.setItem("synapsis-theme", theme);
+    set({ currentTheme: theme });
+  },
   getColors: () => themes[get().currentTheme],
 }));
 
