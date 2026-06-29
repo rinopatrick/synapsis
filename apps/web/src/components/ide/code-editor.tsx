@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Editor, { OnMount, OnChange } from "@monaco-editor/react";
+import type * as monaco from "monaco-editor";
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
 import { useMultiEditor } from "@/hooks/use-multi-editor";
@@ -77,6 +78,30 @@ interface CodeEditorPaneProps {
   onSplit: () => void;
 }
 
+let abortController: AbortController | null = null;
+
+async function fetchAutocompleteSuggestion(
+  prefix: string,
+  suffix: string,
+  language: string,
+  fileName: string
+): Promise<string> {
+  if (abortController) {
+    abortController.abort();
+  }
+  abortController = new AbortController();
+
+  const response = await fetch("/api/autocomplete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prefix, suffix, language, fileName }),
+    signal: abortController.signal,
+  });
+
+  const data = await response.json();
+  return data.suggestion || "";
+}
+
 function CodeEditorPane({
   paneId,
   fileId,
@@ -88,6 +113,13 @@ function CodeEditorPane({
 }: CodeEditorPaneProps) {
   const { openFiles, updateFileContent, setActiveFile } = useIDEStore();
   const { setPaneFile } = useMultiEditor();
+  const providerRef = useRef<monaco.IDisposable | null>(null);
+
+  useEffect(() => {
+    return () => {
+      providerRef.current?.dispose();
+    };
+  }, []);
 
   const currentFile = openFiles.find((f) => f.id === fileId);
 
@@ -100,34 +132,99 @@ function CodeEditorPane({
     [fileId, updateFileContent]
   );
 
-  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
-    monaco.editor.defineTheme("synapsis-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [
-        { token: "comment", foreground: "6A9955", fontStyle: "italic" },
-        { token: "keyword", foreground: "C586C0" },
-        { token: "string", foreground: "CE9178" },
-        { token: "number", foreground: "B5CEA8" },
-        { token: "type", foreground: "4EC9B0" },
-        { token: "class", foreground: "4EC9B0" },
-        { token: "function", foreground: "DCDCAA" },
-        { token: "variable", foreground: "9CDCFE" },
-        { token: "constant", foreground: "4FC1FF" },
-      ],
-      colors: {
-        "editor.background": "#1e1e1e",
-        "editor.foreground": "#d4d4d4",
-        "editorLineNumber.foreground": "#858585",
-        "editorLineNumber.activeForeground": "#c6c6c6",
-        "editor.lineHighlightBackground": "#2a2d2e",
-        "editorCursor.foreground": "#aeafad",
-        "editor.selectionBackground": "#264f78",
-        "editor.inactiveSelectionBackground": "#3a3d41",
-      },
-    });
-    monaco.editor.setTheme("synapsis-dark");
-  }, []);
+  const handleEditorMount: OnMount = useCallback(
+    (editor, monaco) => {
+      monaco.editor.defineTheme("synapsis-dark", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [
+          { token: "comment", foreground: "6A9955", fontStyle: "italic" },
+          { token: "keyword", foreground: "C586C0" },
+          { token: "string", foreground: "CE9178" },
+          { token: "number", foreground: "B5CEA8" },
+          { token: "type", foreground: "4EC9B0" },
+          { token: "class", foreground: "4EC9B0" },
+          { token: "function", foreground: "DCDCAA" },
+          { token: "variable", foreground: "9CDCFE" },
+          { token: "constant", foreground: "4FC1FF" },
+        ],
+        colors: {
+          "editor.background": "#1e1e1e",
+          "editor.foreground": "#d4d4d4",
+          "editorLineNumber.foreground": "#858585",
+          "editorLineNumber.activeForeground": "#c6c6c6",
+          "editor.lineHighlightBackground": "#2a2d2e",
+          "editorCursor.foreground": "#aeafad",
+          "editor.selectionBackground": "#264f78",
+          "editor.inactiveSelectionBackground": "#3a3d41",
+        },
+      });
+      monaco.editor.setTheme("synapsis-dark");
+
+      // Register inline completions provider (Copilot-style autocomplete)
+      if (providerRef.current) {
+        providerRef.current.dispose();
+      }
+
+      providerRef.current = monaco.languages.registerInlineCompletionsProvider(
+        "*",
+        {
+          provideInlineCompletions: async (model, position, _context, token) => {
+            const language = model.getLanguageId();
+            const fileName = model.uri.path;
+
+            const prefix = model.getValueInRange({
+              startLineNumber: 1,
+              startColumn: 1,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column,
+            });
+
+            const totalLines = model.getLineCount();
+            const suffix = model.getValueInRange({
+              startLineNumber: position.lineNumber,
+              startColumn: position.column,
+              endLineNumber: Math.min(position.lineNumber + 50, totalLines),
+              endColumn: model.getLineMaxColumn(
+                Math.min(position.lineNumber + 50, totalLines)
+              ),
+            });
+
+            try {
+              const suggestion = await fetchAutocompleteSuggestion(
+                prefix,
+                suffix,
+                language,
+                fileName
+              );
+
+              if (!suggestion || token.isCancellationRequested) {
+                return { items: [] };
+              }
+
+              return {
+                items: [
+                  {
+                    insertText: suggestion,
+                    range: {
+                      startLineNumber: position.lineNumber,
+                      startColumn: position.column,
+                      endLineNumber: position.lineNumber,
+                      endColumn: position.column,
+                    },
+                  },
+                ],
+              };
+            } catch {
+              return { items: [] };
+            }
+          },
+          freeInlineCompletions: () => {},
+        }
+      );
+    },
+    []
+  );
 
   const pathParts = currentFile?.path.split("/") || [];
 
