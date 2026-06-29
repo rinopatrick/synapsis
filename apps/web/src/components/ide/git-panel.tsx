@@ -1,137 +1,112 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useIDEStore } from "@/hooks/use-ide-store";
-
-interface GitStatus {
-  branch: string;
-  ahead: number;
-  behind: number;
-  staged: GitFile[];
-  unstaged: GitFile[];
-  untracked: GitFile[];
-}
-
-interface GitFile {
-  path: string;
-  status: "modified" | "added" | "deleted" | "renamed" | "untracked";
-}
+import { useGit } from "@/hooks/use-git";
 
 export function GitPanel() {
-  const [status, setStatus] = useState<GitStatus>({
-    branch: "main",
-    ahead: 0,
-    behind: 0,
-    staged: [],
-    unstaged: [],
-    untracked: [],
-  });
+  const { files, branch, commits, isLoading, stageFiles, commit, push, pull, refresh } =
+    useGit();
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const { addNotification, openFiles, activeFile } = useIDEStore();
+  const [showLog, setShowLog] = useState(false);
+  const { addNotification } = useIDEStore();
 
-  // Simulate git status
-  useEffect(() => {
-    const hasChanges = openFiles.some((f) => f.modified);
-    if (hasChanges) {
-      setStatus((prev) => ({
-        ...prev,
-        unstaged: openFiles
-          .filter((f) => f.modified)
-          .map((f) => ({ path: f.path, status: "modified" as const })),
-      }));
-    }
-  }, [openFiles]);
+  const staged = files.filter((f) => /^[MADRC]/.test(f.status));
+  const unstaged = files.filter((f) => /^.[MDRC]/.test(f.status));
+  const untracked = files.filter((f) => f.status === "??");
 
-  const handleStage = (file: GitFile) => {
-    setStatus((prev) => ({
-      ...prev,
-      unstaged: prev.unstaged.filter((f) => f.path !== file.path),
-      staged: [...prev.staged, file],
-    }));
-    addNotification(`Staged ${file.path}`, "info");
+  const handleStage = async (path: string) => {
+    await stageFiles([path]);
+    addNotification(`Staged ${path}`, "info");
   };
 
-  const handleUnstage = (file: GitFile) => {
-    setStatus((prev) => ({
-      ...prev,
-      staged: prev.staged.filter((f) => f.path !== file.path),
-      unstaged: [...prev.unstaged, file],
-    }));
-    addNotification(`Unstaged ${file.path}`, "info");
+  const handleUnstage = async (path: string) => {
+    await stageFiles(["--", path]);
+    addNotification(`Unstaged ${path}`, "info");
   };
 
-  const handleStageAll = () => {
-    setStatus((prev) => ({
-      ...prev,
-      staged: [...prev.staged, ...prev.unstaged, ...prev.untracked],
-      unstaged: [],
-      untracked: [],
-    }));
+  const handleStageAll = async () => {
+    await stageFiles(["."]);
     addNotification("All changes staged", "info");
   };
 
-  const handleCommit = () => {
+  const handleCommit = async () => {
     if (!commitMessage.trim()) {
       addNotification("Enter commit message", "warning");
       return;
     }
 
     setIsCommitting(true);
-    setTimeout(() => {
-      setStatus((prev) => ({
-        ...prev,
-        staged: [],
-        ahead: prev.ahead + 1,
-      }));
+    try {
+      await commit(commitMessage);
       setCommitMessage("");
+      addNotification("Committed successfully", "success");
+    } catch {
+      addNotification("Commit failed", "error");
+    } finally {
       setIsCommitting(false);
-      addNotification(`Committed: ${commitMessage}`, "success");
-    }, 500);
+    }
   };
 
-  const handlePush = () => {
+  const handlePush = async () => {
     addNotification("Pushing to remote...", "info");
-    setTimeout(() => {
-      setStatus((prev) => ({ ...prev, ahead: 0 }));
+    try {
+      await push();
       addNotification("Pushed successfully", "success");
-    }, 1000);
+    } catch {
+      addNotification("Push failed", "error");
+    }
   };
 
-  const handlePull = () => {
+  const handlePull = async () => {
     addNotification("Pulling from remote...", "info");
-    setTimeout(() => {
-      setStatus((prev) => ({ ...prev, behind: 0 }));
+    try {
+      await pull();
       addNotification("Pulled successfully", "success");
-    }, 1000);
-  };
-
-  const handleRefresh = () => {
-    addNotification("Refreshing git status...", "info");
+    } catch {
+      addNotification("Pull failed", "error");
+    }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "modified": return "M";
-      case "added": return "A";
-      case "deleted": return "D";
-      case "renamed": return "R";
-      case "untracked": return "U";
-      default: return "?";
+    const s = status.trim();
+    switch (s) {
+      case "M":
+        return "M";
+      case "A":
+        return "A";
+      case "D":
+        return "D";
+      case "R":
+        return "R";
+      case "??":
+        return "U";
+      default:
+        return s || "?";
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "modified": return "text-yellow-400";
-      case "added": return "text-green-400";
-      case "deleted": return "text-red-400";
-      case "renamed": return "text-blue-400";
-      case "untracked": return "text-gray-400";
-      default: return "text-gray-400";
+    const s = status.trim();
+    switch (s) {
+      case "M":
+        return "text-yellow-400";
+      case "A":
+        return "text-green-400";
+      case "D":
+        return "text-red-400";
+      case "R":
+        return "text-blue-400";
+      case "??":
+        return "text-gray-400";
+      default:
+        return "text-gray-400";
     }
   };
+
+  const totalChanges = staged.length + unstaged.length + untracked.length;
 
   return (
     <div className="h-full bg-[#252526] flex flex-col">
@@ -140,47 +115,73 @@ export function GitPanel() {
         <div className="text-xs uppercase tracking-wider text-gray-400">
           Source Control
         </div>
-        <button
-          className="text-xs text-gray-400 hover:text-white"
-          onClick={handleRefresh}
-        >
-          🔄
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className={cn(
+              "text-xs px-2 py-0.5 rounded",
+              showLog ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+            )}
+            onClick={() => setShowLog(!showLog)}
+          >
+            Log
+          </button>
+          <button
+            className="text-xs text-gray-400 hover:text-white"
+            onClick={refresh}
+            disabled={isLoading}
+          >
+            🔄
+          </button>
+        </div>
       </div>
 
       {/* Branch Info */}
       <div className="px-4 py-2 border-b border-[#3c3c3c]">
         <div className="flex items-center gap-2 text-sm">
           <span>🔀</span>
-          <span className="text-white">{status.branch}</span>
-          {status.ahead > 0 && (
-            <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">
-              ↑{status.ahead}
-            </span>
-          )}
-          {status.behind > 0 && (
-            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">
-              ↓{status.behind}
-            </span>
-          )}
+          <span className="text-white">{branch || "detached"}</span>
         </div>
         <div className="flex gap-2 mt-2">
           <button
-            className="flex-1 text-xs px-2 py-1 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c]"
+            className="flex-1 text-xs px-2 py-1 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c] disabled:opacity-50"
             onClick={handlePush}
-            disabled={status.ahead === 0}
+            disabled={isLoading}
           >
             ↑ Push
           </button>
           <button
-            className="flex-1 text-xs px-2 py-1 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c]"
+            className="flex-1 text-xs px-2 py-1 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c] disabled:opacity-50"
             onClick={handlePull}
-            disabled={status.behind === 0}
+            disabled={isLoading}
           >
             ↓ Pull
           </button>
         </div>
       </div>
+
+      {/* Commit Log */}
+      {showLog && (
+        <div className="border-b border-[#3c3c3c] max-h-48 overflow-auto">
+          <div className="px-4 py-1.5 text-xs text-gray-400 uppercase tracking-wider bg-[#1e1e1e]">
+            Commit History
+          </div>
+          {commits.length === 0 ? (
+            <div className="px-4 py-3 text-xs text-gray-500">No commits yet</div>
+          ) : (
+            commits.map((c) => (
+              <div
+                key={c.hash}
+                className="px-4 py-1.5 hover:bg-[#2a2d2e] cursor-pointer"
+              >
+                <div className="text-sm text-gray-200 truncate">{c.message}</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {c.hash.substring(0, 7)} · {c.author} · {c.date}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Commit Input */}
       <div className="p-3 border-b border-[#3c3c3c]">
@@ -196,14 +197,14 @@ export function GitPanel() {
           <button
             className="flex-1 text-xs px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleCommit}
-            disabled={!commitMessage.trim() || isCommitting || status.staged.length === 0}
+            disabled={!commitMessage.trim() || isCommitting || staged.length === 0}
           >
-            {isCommitting ? "Committing..." : `Commit (${status.staged.length})`}
+            {isCommitting ? "Committing..." : `Commit (${staged.length})`}
           </button>
           <button
-            className="text-xs px-3 py-1.5 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c]"
+            className="text-xs px-3 py-1.5 rounded bg-[#3c3c3c] text-gray-300 hover:bg-[#4c4c4c] disabled:opacity-50"
             onClick={handleStageAll}
-            disabled={status.unstaged.length === 0 && status.untracked.length === 0}
+            disabled={unstaged.length === 0 && untracked.length === 0}
           >
             +All
           </button>
@@ -213,17 +214,22 @@ export function GitPanel() {
       {/* File Lists */}
       <div className="flex-1 overflow-auto">
         {/* Staged Changes */}
-        {status.staged.length > 0 && (
+        {staged.length > 0 && (
           <div>
             <div className="px-4 py-1.5 text-xs text-gray-400 uppercase tracking-wider bg-[#1e1e1e]">
-              Staged Changes ({status.staged.length})
+              Staged Changes ({staged.length})
             </div>
-            {status.staged.map((file) => (
+            {staged.map((file) => (
               <div
                 key={file.path}
                 className="flex items-center gap-2 px-4 py-1 hover:bg-[#2a2d2e] cursor-pointer"
               >
-                <span className={cn("text-xs font-mono w-4", getStatusColor(file.status))}>
+                <span
+                  className={cn(
+                    "text-xs font-mono w-4",
+                    getStatusColor(file.status)
+                  )}
+                >
                   {getStatusIcon(file.status)}
                 </span>
                 <span className="text-sm text-gray-200 flex-1 truncate">
@@ -231,7 +237,7 @@ export function GitPanel() {
                 </span>
                 <button
                   className="text-xs text-gray-500 hover:text-white"
-                  onClick={() => handleUnstage(file)}
+                  onClick={() => handleUnstage(file.path)}
                 >
                   −
                 </button>
@@ -241,17 +247,22 @@ export function GitPanel() {
         )}
 
         {/* Unstaged Changes */}
-        {status.unstaged.length > 0 && (
+        {unstaged.length > 0 && (
           <div>
             <div className="px-4 py-1.5 text-xs text-gray-400 uppercase tracking-wider bg-[#1e1e1e]">
-              Changes ({status.unstaged.length})
+              Changes ({unstaged.length})
             </div>
-            {status.unstaged.map((file) => (
+            {unstaged.map((file) => (
               <div
                 key={file.path}
                 className="flex items-center gap-2 px-4 py-1 hover:bg-[#2a2d2e] cursor-pointer"
               >
-                <span className={cn("text-xs font-mono w-4", getStatusColor(file.status))}>
+                <span
+                  className={cn(
+                    "text-xs font-mono w-4",
+                    getStatusColor(file.status)
+                  )}
+                >
                   {getStatusIcon(file.status)}
                 </span>
                 <span className="text-sm text-gray-200 flex-1 truncate">
@@ -259,7 +270,33 @@ export function GitPanel() {
                 </span>
                 <button
                   className="text-xs text-gray-500 hover:text-white"
-                  onClick={() => handleStage(file)}
+                  onClick={() => handleStage(file.path)}
+                >
+                  +
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Untracked Files */}
+        {untracked.length > 0 && (
+          <div>
+            <div className="px-4 py-1.5 text-xs text-gray-400 uppercase tracking-wider bg-[#1e1e1e]">
+              Untracked ({untracked.length})
+            </div>
+            {untracked.map((file) => (
+              <div
+                key={file.path}
+                className="flex items-center gap-2 px-4 py-1 hover:bg-[#2a2d2e] cursor-pointer"
+              >
+                <span className="text-xs font-mono w-4 text-gray-400">U</span>
+                <span className="text-sm text-gray-200 flex-1 truncate">
+                  {file.path}
+                </span>
+                <button
+                  className="text-xs text-gray-500 hover:text-white"
+                  onClick={() => handleStage(file.path)}
                 >
                   +
                 </button>
@@ -269,7 +306,7 @@ export function GitPanel() {
         )}
 
         {/* No Changes */}
-        {status.staged.length === 0 && status.unstaged.length === 0 && status.untracked.length === 0 && (
+        {totalChanges === 0 && (
           <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
             <div className="text-center">
               <span className="text-2xl">✓</span>
