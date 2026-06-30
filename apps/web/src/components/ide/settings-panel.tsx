@@ -27,7 +27,7 @@ export function SettingsPanel() {
   const [selectedModel, setSelectedModel] = useState("");
   const [apiKey, setInputApiKey] = useState("");
   const [fontSize, setFontSize] = useState(14);
-  const [theme, setTheme] = useState(currentTheme);
+  const [theme, setTheme] = useState<Theme>(currentTheme as Theme);
   const [autoSave, setAutoSave] = useState("afterDelay");
 
   useEffect(() => {
@@ -230,7 +230,7 @@ export function SettingsPanel() {
               <select
                 value={theme}
                 onChange={(e) => {
-                  setTheme(e.target.value);
+                  setTheme(e.target.value as Theme);
                   setGlobalTheme(e.target.value as Theme);
                 }}
                 className="w-full bg-[#3c3c3c] text-white rounded px-3 py-2 text-sm outline-none"

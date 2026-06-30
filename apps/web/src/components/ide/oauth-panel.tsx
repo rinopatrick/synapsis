@@ -72,7 +72,7 @@ export function OAuthPanel() {
   }>>({});
 
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const [authMethod, setAuthMethod] = useState<"token" | "api-key">("api-key");
+  const [authMethod, setAuthMethod] = useState<"token" | "api-key" | "oauth">("api-key");
   const [inputValue, setInputValue] = useState("");
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -13,7 +13,7 @@ export function createAutocompleteProvider(
   options: AutocompleteProviderOptions
 ): monaco.languages.InlineCompletionsProvider {
   return {
-    provideInlineCompletions: async (model, position, _context, token) => {
+    provideInlineCompletions: async (model: any, position: any, _context: any, token: any) => {
       const language = model.getLanguageId();
       const fileName = model.uri.path;
 
@@ -63,6 +63,6 @@ export function createAutocompleteProvider(
         return { items: [] };
       }
     },
-    freeInlineCompletions: () => {},
+    disposeInlineCompletions: () => {},
   };
 }

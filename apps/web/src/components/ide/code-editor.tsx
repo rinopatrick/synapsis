@@ -116,7 +116,7 @@ function CodeEditorPane({
   const { setPaneFile } = useMultiEditor();
   const { toggleBreakpoint, hasBreakpoint, currentLine: debugLine, currentFile: debugFile } = useDebug();
   const providerRef = useRef<monaco.IDisposable | null>(null);
-  const editorRef = useRef<monaco.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
@@ -148,7 +148,7 @@ function CodeEditorPane({
           glyphMarginClassName: "breakpoint-glyph",
           overviewRuler: {
             color: "#ff0000",
-            position: monaco.editor.OverviewRulerLane.Left,
+            position: 1, // OverviewRulerLane.Left
           },
         },
       });
@@ -214,7 +214,7 @@ function CodeEditorPane({
       providerRef.current = monaco.languages.registerInlineCompletionsProvider(
         "*",
         {
-          provideInlineCompletions: async (model, position, _context, token) => {
+          provideInlineCompletions: async (model: any, position: any, _context: any, token: any) => {
             const language = model.getLanguageId();
             const fileName = model.uri.path;
 

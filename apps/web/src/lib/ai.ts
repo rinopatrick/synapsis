@@ -56,7 +56,7 @@ export async function generateAIText(
   const model = provider(config.model || getDefaultModel(config.provider));
 
   return generateText({
-    model,
+    model: model as any,
     messages,
     maxTokens: options?.maxTokens || 1000,
     temperature: options?.temperature || 0.7,
@@ -80,7 +80,7 @@ export async function streamAIText(
   const model = provider(config.model || getDefaultModel(config.provider));
 
   return streamText({
-    model,
+    model: model as any,
     messages,
     maxTokens: options?.maxTokens || 1000,
     temperature: options?.temperature || 0.7,
@@ -116,7 +116,7 @@ export async function checkProviderAvailability(
 
     // Try a simple generation
     await generateText({
-      model,
+      model: model as any,
       messages: [{ role: "user", content: "Hello" }],
       maxTokens: 5,
     });

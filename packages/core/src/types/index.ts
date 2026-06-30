@@ -46,7 +46,7 @@ export interface Decision {
   aiSuggestion: string | null;
 }
 
-export interface DecisionRegistry {
+export interface DecisionRegistryInterface {
   decisions: Map<string, Decision>;
   analyzePrompt(prompt: string): Decision[];
   lockDecision(id: string, value: string): void;
